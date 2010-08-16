@@ -7,7 +7,17 @@
 ################################################################################
 cmake_minimum_required(VERSION 2.8)
 
-project(options)
+project(boost_options)
+
+################################################################################
+# Set compile Flags
+################################################################################
+IF(MSVC)
+ENDIF(MSVC)
+
+IF(CMAKE_COMPILER_IS_GNUCXX) # set appropriate compiler flags
+ SET(CMAKE_CXX_FLAGS "-Wall -Wextra")
+ENDIF(CMAKE_COMPILER_IS_GNUCXX)
 
 ################################################################################
 # Global Options
@@ -22,6 +32,8 @@ FIND_PACKAGE( Boost 1.44.0 )
 IF(Boost_FOUND)
  LINK_DIRECTORIES(${Boost_LIBRARY_DIRS})
  INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
+ELSE()
+	MESSAGE(ERROR "Boost >=1.44 not found")
 ENDIF()
 
 ################################################################################
