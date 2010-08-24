@@ -1,6 +1,8 @@
 #include <iostream>
 #include <string>
+#include <typeinfo>
 #include <boost/options/options.hpp>
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // Register some named parameters
