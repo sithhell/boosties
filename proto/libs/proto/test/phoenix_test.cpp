@@ -598,7 +598,7 @@ struct constant_folder<boost::proto::tag::plus>
             return e;
         }
         
-        template <typename Expr, typename State>
+        template <typename Expr>
         typename result<this_type(Expr const&)>::type
         invoke(Expr const & expr, boost::mpl::false_) const
         {
@@ -650,5 +650,5 @@ int main()
 
     std::cout << constant_fold( val(8) + val(9) )(9) << "\n";
     std::cout << constant_fold( val(8) + val(9) + val(10) )(9) << "\n";
-    //std::cout << constant_fold( val(8) + _1 )(9) << "\n";
+    std::cout << constant_fold( val(8) + _1 )(9) << "\n";
 }
