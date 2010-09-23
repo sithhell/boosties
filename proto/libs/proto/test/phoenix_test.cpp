@@ -511,6 +511,7 @@ struct traversal
         typename Grammar::template impl<T const&, State, Data> g;
         g(t, state, data);
     }
+
     template <typename T>
     typename boost::disable_if<boost::proto::is_expr<T> >::type
     operator()(T const & t) const
@@ -603,11 +604,11 @@ struct constant_folder<boost::proto::tag::plus>
         typename result<this_type(Expr const&)>::type
         invoke(Expr const & expr, boost::mpl::true_) const
         {
-            std::cout << "fold!\n";
-            typedef result<this_type(Expr const&)> nested_result;
-            typename nested_result::constant::lhs_folded const e
-                = {{constant_fold(boost::proto::child_c<0>(expr))(0) + constant_fold(boost::proto::child_c<1>(expr))(0)}};
-            return e;
+            return
+                phoenix::val(
+                    constant_fold(boost::proto::child_c<0>(expr))(0)
+                  + constant_fold(boost::proto::child_c<1>(expr))(0)
+                );
         }
         
         template <typename Expr>
@@ -662,8 +663,7 @@ int main()
 
     std::for_each(v.begin(), v.end(), if_(_1 % 2)[std::cout << _1 << std::string(" is odd\n")].else_[std::cout << _1 << std::string(" is even\n")]);
 
-
-    /*std::cout << constant_fold( val(8) + val(9) )(9) << "\n";
-    std::cout << constant_fold( val(8) + val(9) + val(10) )(9) << "\n";*/
-    std::cout << constant_fold( _1 * (val(7) + val(8)) )(9) << "\n";
+    std::cout << typeid(constant_fold( val(8) + val(9) )).name() << "\n";
+    std::cout << typeid(constant_fold( val(8) + val(9) + val(10) )).name() << "\n";
+    std::cout << typeid(constant_fold( _1 * (val(7) + val(8)) )).name() << "\n";
 }
