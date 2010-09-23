@@ -1,11 +1,16 @@
 
 #include <boost/call_traits.hpp>
 #include <boost/ref.hpp>
+#include <boost/fusion/algorithm/iteration/for_each.hpp>
 #include <boost/mpl/eval_if.hpp>
-#include <boost/proto/proto.hpp>
+#include <boost/proto/core.hpp>
+#include <boost/proto/transform.hpp>
+#include <boost/proto/fusion.hpp>
 #include <boost/proto/visitor/cases.hpp>
-#include <boost/proto/visitor/grammar.hpp>
 #include <boost/proto/visitor/visit.hpp>
+#include <boost/proto/visitor/grammar.hpp>
+
+#include <iostream>
 
 namespace boost { namespace phoenix {
     
@@ -24,7 +29,6 @@ namespace boost { namespace phoenix {
 
     eval_grammar const eval = eval_grammar();
 
-    
     ////////////////////////////////////////////////////////////////////////////
     // Generic evaluator:
     // Depending on the given tag, the transform is called
@@ -33,27 +37,7 @@ namespace boost { namespace phoenix {
     // expression arity and generic::evaluator<Tag>::operator() arity needs to
     // match
     template <typename Tag>
-    struct generic_evaluator
-        : proto::visitor<proto::visit::packed, proto::visit::with_state, proto::visit::without_data>
-    {
-        typedef generic_evaluator<Tag> this_type;
-
-        template <typename Sig>
-        struct result;
-        
-        template <typename This, typename Expr, typename State>
-        struct result<This(Expr const&, State&)>
-        {
-            typedef typename boost::result_of<proto::_default<eval_grammar>(Expr, State)>::type type;
-        };
-        
-        template <typename Expr, typename State>
-        typename result<this_type const(Expr const&, State&)>::type
-        operator()(Expr const& expr, State& state)
-        {
-            return proto::_default<eval_grammar>()(expr, state);
-        }
-    };
+    struct generic_evaluator;
 
     template <typename Expr>
     struct actor;
@@ -330,7 +314,8 @@ namespace boost { namespace phoenix {
         template <typename This, typename N, typename Env>
         struct result<This(N const&, Env&)>
             : fusion::result_of::at_c<Env, remove_reference<typename boost::result_of<eval_grammar(N)>::type>::type::value>
-        {};
+        {
+        };
         
         template <typename N, typename Env>
         typename fusion::result_of::at_c<
@@ -508,28 +493,54 @@ void if_foo(Expr const& expr, boost::mpl::false_)
 }
 
 template <typename Tag>
-struct constant_folder
-    : boost::proto::visitor<boost::proto::visit::packed, boost::proto::visit::with_state, boost::proto::visit::without_data>
+struct constant_folder;
+
+template <typename Grammar, typename State, typename Data>
+struct traversal
 {
-    template <typename Sig>
-    struct result;
+    traversal(State state, Data data) : state(state), data(data) {}
+    State state;
+    Data data;
 
-    template <typename This, typename Expr, typename State>
-    struct result<This(Expr const&, State&)>
-    {
-        typedef Expr const & type;
-    };
+    typedef void result_type;
 
-    template <typename Expr, typename State>
-    Expr const &
-    operator()(Expr const & expr, State&) const
+    template <typename T>
+    typename boost::enable_if<boost::proto::is_expr<T> >::type
+    operator()(T const & t) const
     {
-        return expr;
+        typename Grammar::template impl<T const&, State, Data> g;
+        g(t, state, data);
     }
+    template <typename T>
+    typename boost::disable_if<boost::proto::is_expr<T> >::type
+    operator()(T const & t) const
+    {}
 };
 
+template <typename Grammar>
+struct fall_through
+    : boost::proto::transform<fall_through<Grammar> >
+{
+    template <typename Expr, typename State, typename Data>
+    struct impl
+        : boost::proto::transform_impl<Expr, State, Data>
+    {
+        typedef typename impl::expr_param result_type;
 
-typedef boost::proto::grammar<constant_folder, phoenix::phoenix_grammar> constant_fold_grammar;
+        result_type
+        operator()(
+            typename impl::expr_param expr
+          , typename impl::state_param state
+          , typename impl::data_param data
+        ) const
+        {
+            boost::fusion::for_each(expr, traversal<Grammar, typename impl::state_param, typename impl::data_param>(state, data));
+            return expr;
+        }
+    };
+};
+
+typedef boost::proto::grammar<constant_folder, phoenix::phoenix_grammar, boost::proto::_, fall_through> constant_fold_grammar;
 
 constant_fold_grammar const constant_fold = constant_fold_grammar();
 
@@ -592,6 +603,7 @@ struct constant_folder<boost::proto::tag::plus>
         typename result<this_type(Expr const&)>::type
         invoke(Expr const & expr, boost::mpl::true_) const
         {
+            std::cout << "fold!\n";
             typedef result<this_type(Expr const&)> nested_result;
             typename nested_result::constant::lhs_folded const e
                 = {{constant_fold(boost::proto::child_c<0>(expr))(0) + constant_fold(boost::proto::child_c<1>(expr))(0)}};
@@ -602,6 +614,8 @@ struct constant_folder<boost::proto::tag::plus>
         typename result<this_type(Expr const&)>::type
         invoke(Expr const & expr, boost::mpl::false_) const
         {
+            constant_fold(boost::proto::child_c<0>(expr));
+            constant_fold(boost::proto::child_c<1>(expr));
             return expr;
         }
 };
@@ -648,7 +662,8 @@ int main()
 
     std::for_each(v.begin(), v.end(), if_(_1 % 2)[std::cout << _1 << std::string(" is odd\n")].else_[std::cout << _1 << std::string(" is even\n")]);
 
-    std::cout << constant_fold( val(8) + val(9) )(9) << "\n";
-    std::cout << constant_fold( val(8) + val(9) + val(10) )(9) << "\n";
-    std::cout << constant_fold( val(8) + _1 )(9) << "\n";
+
+    /*std::cout << constant_fold( val(8) + val(9) )(9) << "\n";
+    std::cout << constant_fold( val(8) + val(9) + val(10) )(9) << "\n";*/
+    std::cout << constant_fold( _1 * (val(7) + val(8)) )(9) << "\n";
 }

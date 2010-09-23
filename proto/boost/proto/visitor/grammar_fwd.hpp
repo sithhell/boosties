@@ -16,7 +16,8 @@ namespace boost { namespace proto {
 template <
     template <typename> class Visitor
   , template <typename> class Grammar
-  , typename DefaultGrammar = proto::_
+  , typename DefaultGrammar   = proto::_
+  , template <typename> class DefaultTransform = proto::_default
 >
 struct grammar;
 
