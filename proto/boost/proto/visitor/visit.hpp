@@ -11,6 +11,7 @@
 
 #include <boost/utility/result_of.hpp>
 #include <boost/proto/transform/pass_through.hpp>
+#include <boost/proto/transform/default.hpp>
 #include <boost/proto/visitor/grammar_fwd.hpp>
 #include <boost/proto/visitor/visitor.hpp>
 #include <boost/proto/visitor/detail/can_visit.hpp>
@@ -33,17 +34,13 @@ struct _visit
             : proto::transform_impl<Expr, State, Data>
         {
             typedef typename proto::tag_of<Expr>::type tag_type;
-            typedef typename detail::can_visit<Visitor<tag_type> >::type can_visit;
-            typedef
-                proto::pass_through<
-                    grammar<Visitor, Grammar, DefaultGrammar>
-                > default_transform;
 
             typedef typename
-                mpl::eval_if_c<
-                    can_visit::value
-                  , typename result_of::visitor<Visitor<tag_type>, typename impl::expr_param,  typename impl::state_param, typename impl::data_param>
-                  , typename boost::result_of<default_transform(typename impl::expr_param, typename impl::state_param, typename impl::data_param)>
+                result_of::visitor<
+                    Visitor<tag_type>
+                  , typename impl::expr_param
+                  , typename impl::state_param
+                  , typename impl::data_param
                 >::type
                 result_type;
             
@@ -53,38 +50,18 @@ struct _visit
               , typename impl::data_param data
             ) const
             {
-                return this->invoke(expr, state, data, can_visit());
+                return this->invoke(
+                    expr
+                  , state
+                  , data
+                  , typename Visitor<tag_type>::proto_visit_packed_()
+                  , typename Visitor<tag_type>::proto_visit_state_()
+                  , typename Visitor<tag_type>::proto_visit_data_()
+                );
             }
 
             private:
                 result_type invoke(
-                    typename impl::expr_param expr
-                  , typename impl::state_param state
-                  , typename impl::data_param data
-                  , mpl::false_
-                ) const
-                {
-                    return default_transform()(expr, state, data);
-                }
-
-                result_type invoke(
-                    typename impl::expr_param expr
-                  , typename impl::state_param state
-                  , typename impl::data_param data
-                  , mpl::true_
-                ) const
-                {
-                    return this->invoke_pack(
-                        expr
-                      , state
-                      , data
-                      , typename Visitor<tag_type>::proto_visit_packed_()
-                      , typename Visitor<tag_type>::proto_visit_state_()
-                      , typename Visitor<tag_type>::proto_visit_data_()
-                    );
-                }
-                
-                result_type invoke_pack(
                     typename impl::expr_param expr
                   , typename impl::state_param state
                   , typename impl::data_param data
@@ -96,7 +73,7 @@ struct _visit
                     return detail::invoke_impl<Visitor<tag_type>, typename impl::expr_param>()(expr);
                 }
                 
-                result_type invoke_pack(
+                result_type invoke(
                     typename impl::expr_param expr
                   , typename impl::state_param state
                   , typename impl::data_param data
@@ -108,7 +85,7 @@ struct _visit
                     return detail::invoke_impl<Visitor<tag_type>, typename impl::expr_param>()(expr, state);
                 }
                 
-                result_type invoke_pack(
+                result_type invoke(
                     typename impl::expr_param expr
                   , typename impl::state_param state
                   , typename impl::data_param data
@@ -120,7 +97,7 @@ struct _visit
                     return detail::invoke_impl<Visitor<tag_type>, typename impl::expr_param>()(expr, state, data);
                 }
 
-                result_type invoke_pack(
+                result_type invoke(
                     typename impl::expr_param expr
                   , typename impl::state_param state
                   , typename impl::data_param data
@@ -132,7 +109,7 @@ struct _visit
                     return Visitor<tag_type>()(expr);
                 }
 
-                result_type invoke_pack(
+                result_type invoke(
                     typename impl::expr_param expr
                   , typename impl::state_param state
                   , typename impl::data_param data
@@ -144,7 +121,7 @@ struct _visit
                     return Visitor<tag_type>()(expr, state);
                 }
 
-                result_type invoke_pack(
+                result_type invoke(
                     typename impl::expr_param expr
                   , typename impl::state_param state
                   , typename impl::data_param data

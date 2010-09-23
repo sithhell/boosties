@@ -12,9 +12,11 @@
 #include <boost/mpl/identity.hpp>
 #include <boost/mpl/eval_if.hpp>
 #include <boost/proto/transform/when.hpp>
+#include <boost/proto/transform/default.hpp>
 #include <boost/proto/visitor/cases_fwd.hpp>
 #include <boost/proto/visitor/grammar_fwd.hpp>
 #include <boost/proto/visitor/visit.hpp>
+#include <boost/proto/visitor/detail/can_visit.hpp>
 
 namespace boost { namespace proto {
 
@@ -49,6 +51,7 @@ template <
     template <typename> class Visitor
   , template <typename> class Grammar
   , typename DefaultGrammar
+  , template <typename> class DefaultTransform
 >
 struct cases
 {
@@ -57,7 +60,11 @@ struct cases
         : proto::when<
             // dispatch again, check wether our user supplied grammar handles this tag
             typename detail::select_grammar<Grammar, Tag, DefaultGrammar>::type
-          , _visit<Visitor, Grammar, DefaultGrammar>
+          , proto::if_<
+                detail::can_visit<Visitor<Tag> >()
+              , _visit<Visitor, Grammar, DefaultGrammar>
+              , DefaultTransform<proto::grammar<Visitor, Grammar, DefaultGrammar, DefaultTransform> >
+            >
         >
     {};
 };

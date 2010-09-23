@@ -15,6 +15,7 @@ template <
     template <typename> class Visitor
   , template <typename> class Grammar
   , typename DefaultGrammar
+  , template <typename> class DefaultTransform
 >
 struct cases;
 
