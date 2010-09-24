@@ -1,4 +1,3 @@
-
 #include <boost/fusion/support/is_sequence.hpp>
 #include <boost/fusion/algorithm/iteration/for_each.hpp>
 #include <boost/fusion/algorithm/transformation.hpp>
