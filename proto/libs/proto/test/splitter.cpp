@@ -6,6 +6,7 @@
 #include <boost/proto/core.hpp>
 #include <boost/proto/transform.hpp>
 #include <boost/proto/transform/fall_through.hpp>
+#include <boost/proto/transform/transform_expr.hpp>
 #include <boost/proto/fusion.hpp>
 #include <boost/proto/visitor/cases.hpp>
 #include <boost/proto/visitor/visit.hpp>
@@ -88,102 +89,111 @@ struct needs_split
 template <int N>
 struct make_split_terminal : proto::terminal<mpl::int_<N> > {};
 
-template <int N>
-struct replace_split
-{
-    template <typename Sig>
-    struct result;
+namespace boost { namespace proto {
 
-    template <typename This, typename E>
-    struct result<This(E)>
+namespace functional {
+    
+    struct join
     {
-        typedef typename
-            mpl::eval_if_c<
-                is_split_expr<E>::type::value
-              , make_split_terminal<N>
-              , mpl::identity<E>
-            >::type
-            type;
+        BOOST_PROTO_CALLABLE()
+
+        template <typename Sig>
+        struct result;
+
+        template <typename This, typename Seq1, typename Seq2>
+        struct result<This(Seq1, Seq2)>
+            : result<This(Seq1 const&, Seq2 const&)>
+        {};
+
+        template <typename This, typename Seq1, typename Seq2>
+        struct result<This(Seq1 &, Seq2 &)>
+            : fusion::result_of::join<Seq1 const, Seq2 const>
+        {};
+
+        template <typename Seq1, typename Seq2>
+        typename fusion::result_of::join<Seq1 const, Seq2 const>::type
+        operator()(Seq1 const& seq1, Seq2 const& seq2) const
+        {
+            return fusion::join(seq1, seq2);
+        }
     };
     
-    template <typename E>
-    typename result<replace_split<N>(E)>::type
-    operator()(E const& e ) const
+    struct push_back
     {
-        return this->invoke(e, typename boost::is_same<typename proto::tag_of<E>::type, tag::split>::type());
-    }
+        BOOST_PROTO_CALLABLE()
 
-    template <typename E>
-    typename result<replace_split<N>(E const&)>::type
-    invoke(E const & e, mpl::true_ ) const // needs splitting
-    {
-        typename make_split_terminal<N>::type const f = {};
-        return f;
-    }
+        template <typename Sig>
+        struct result;
 
-    template <typename E>
-    typename result<replace_split<N>(E const&)>::type
-    invoke(E const & e, mpl::false_ ) const // needs no splitting
-    {
-        return e;
-    }
+        template <typename This, typename Seq, typename T>
+        struct result<This(Seq, T const &)>
+            : result<This(Seq const&, T const&)>
+        {};
 
-};
+        template <typename This, typename Seq, typename T>
+        struct result<This(Seq &, T const &)>
+            : fusion::result_of::push_back<Seq const, T>
+        {};
+
+        template <typename Seq, typename T>
+        typename fusion::result_of::push_back<Seq const, T>::type
+        operator()(Seq const& seq, T const& t) const
+        {
+            return fusion::push_back(seq, t);
+        }
+    };
+}
+
+template <>
+struct is_callable<functional::join> : mpl::true_ {};
+
+template <>
+struct is_callable<functional::push_back> : mpl::true_ {};
+}}
 
 struct eval_children
-{
-    template <typename Sig>
-    struct result;
+    : proto::or_<
+        proto::when<
+            proto::unary_expr<tag::split, proto::_>
+          , proto::if_<
+                fusion::traits::is_sequence<split_grammar>()
+              , proto::functional::join(proto::_state, split_grammar)
+              , proto::functional::push_back(proto::_state, split_grammar)
+            >
+        >
+      , proto::otherwise<proto::_state>
+    >
+{};
 
-    template <typename This, typename State, typename Expr>
-    struct result<This(State const&, Expr const&)>
-    {
-        typedef typename proto::detail::uncvref<typename boost::result_of<split_grammar(Expr const&, State const&)>::type>::type eval_result;
+struct eval
+    : proto::when<
+        proto::_
+      , proto::fold<
+            proto::_
+          , proto::_state
+          , eval_children
+        >
+    >
+{};
 
-        typedef typename
-            mpl::eval_if_c<
-                is_split_expr<Expr>::value
-              , mpl::eval_if_c<
-                    fusion::traits::is_sequence<eval_result>::value
-                  , fusion::result_of::join<State const, eval_result const>
-                  , fusion::result_of::push_back<State const,  eval_result>
-                >
-              , mpl::identity<State const>
-            >::type
-            type;
-    };
-    
-    template <typename State, typename Expr>
-    typename result<eval_children(State const&, Expr const&)>::type
-    operator()(State const& state, Expr const& expr) const
-    {
-        typedef result<eval_children(State const&, Expr const&)> nested_result;
-        return this->invoke(state, expr, typename is_split_expr<Expr>::type(), typename fusion::traits::is_sequence<typename nested_result::eval_result>::type());
-    }
+struct transform_children
+    : proto::or_<
+        proto::when<
+            proto::unary_expr<tag::split, proto::_>
+          , make_split_terminal<0>(mpl::int_<0>())
+        >
+      , proto::otherwise<proto::_>
+    >
+{};
 
-    template <typename State, typename Expr, typename IsSequence>
-    typename result<eval_children(State const&, Expr const&)>::type
-    invoke(State const& state, Expr const& expr, mpl::false_, IsSequence) const
-    {
-        return state;
-    }
-
-    template <typename State, typename Expr>
-    typename result<eval_children(State const&, Expr const&)>::type
-    invoke(State const& state, Expr const& expr, mpl::true_, mpl::false_) const
-    {
-
-        return fusion::push_back(state, splitter(expr, state));
-    }
-
-    template <typename State, typename Expr>
-    typename result<eval_children(State const&, Expr const&)>::type
-    invoke(State const& state, Expr const& expr, mpl::true_, mpl::true_) const
-    {
-
-        return fusion::join(state, splitter(expr, state));
-    }
-};
+struct transform
+    : proto::when<
+        proto::_
+      , proto::transform_expr<
+            transform_children
+        >
+    >
+{};
 
 template <typename Tag>
 struct splitter_visitor
@@ -195,56 +205,54 @@ struct splitter_visitor
     struct result;
 
     template <typename This, typename Expr, typename State>
-    struct result<This(Expr const &, State const&)>
-    {
-        typedef typename proto::detail::uncvref<typename
-            proto::result_of::unpack_expr<
-                Tag
-              , proto::default_domain
-              , typename proto::detail::uncvref<typename fusion::result_of::transform<
-                    Expr
-                  , replace_split<fusion::result_of::size<State>::type::value>
-                >::type>::type
-            >::type>::type
-            split_expr_type;
+    struct result<This(Expr const &, State)>
+        : result<This(Expr const&, State const &)>
+    {};
 
+    template <typename This, typename Expr, typename State>
+    struct result<This(Expr const &, State &)>
+    {
         typedef typename proto::detail::uncvref<typename
             mpl::eval_if_c<
                 needs_split<Expr>::type::value
-              , proto::detail::uncvref< typename fusion::result_of::join<typename fusion::result_of::push_front<State const, split_expr_type>::type const, typename fusion::result_of::fold<Expr, fusion::vector0<>, eval_children>::type const>::type >
-              , mpl::identity<fusion::vector1<Expr const &> >//fusion::result_of::join<State const, fusion::vector1<Expr> const >
+              , proto::detail::uncvref<
+                    typename fusion::result_of::join<
+                        typename fusion::result_of::push_front<
+                            typename boost::remove_const<State>::type const
+                          , typename boost::result_of<transform(Expr const&)>::type
+                        >::type const
+                      , typename boost::result_of<eval(Expr const&, fusion::vector0<> &)>::type const
+                    >::type
+                >
+              , mpl::identity<fusion::vector1<Expr const &> >
             >::type>::type
             type;
     };
 
     template <typename Expr, typename State>
-    typename result<this_type(Expr const&, State const&)>::type
-    operator()(Expr const& expr, State const&state) const
+    typename result<this_type(Expr const&, State &)>::type
+    operator()(Expr const& expr, State & state) const
     {
         return this->invoke(expr, state, typename needs_split<Expr>::type());
     }
 
     template <typename Expr, typename State>
-    typename proto::detail::uncvref<typename result<this_type(Expr const&, State const&)>::type>::type
-    invoke(Expr const& expr, State const& state, mpl::true_) const
+    typename result<this_type(Expr const&, State &)>::type
+    invoke(Expr const& expr, State & state, mpl::true_) const
     {
+        fusion::vector0<> v;
         return fusion::join(
             fusion::push_front(
                 state
-              , proto::functional::unpack_expr<Tag>()(
-                    fusion::transform(
-                        expr
-                      , replace_split<fusion::result_of::size<State>::type::value>()
-                    )
-                )
+              , transform()(expr)
             )
-          , fusion::fold(expr, fusion::vector0<>(), eval_children())
+          , eval()(expr, v)
         );
     }
 
     template <typename Expr, typename State>
-    typename result<this_type(Expr const&, State const&)>::type
-    invoke(Expr const& expr, State const&state, mpl::false_) const
+    typename result<this_type(Expr const&, State &)>::type
+    invoke(Expr const& expr, State & state, mpl::false_) const
     {
         return fusion::vector1<Expr const&>(expr);//return fusion::join(state, fusion::vector1<Expr>(expr));
     }
@@ -258,14 +266,19 @@ struct splitter_visitor<tag::split>
     struct result;
     
     template <typename This, typename Expr, typename State>
-    struct result<This(Expr const&, State const&)>
+    struct result<This(Expr const&, State)>
+        : result<This(Expr const &, State const&)>
+    {};
+    
+    template <typename This, typename Expr, typename State>
+    struct result<This(Expr const&, State &)>
     {
-        typedef typename boost::result_of<split_grammar(Expr const &, State const&)>::type type;
+        typedef typename boost::result_of<split_grammar(Expr const &, State &)>::type type;
     };
 
     template <typename Expr, typename State>
-    typename result<splitter_visitor<tag::split>(Expr const&, State const&)>::type
-    operator()(Expr const& expr, State const& state) const
+    typename result<splitter_visitor<tag::split>(Expr const&, State &)>::type
+    operator()(Expr const& expr, State & state) const
     {
         return splitter(expr, state );
     }
@@ -290,8 +303,8 @@ int main()
     std::cout << typeid(fusion::as_vector(splitter(a + split(b + c), res))).name() << "\n\n";
     std::cout << typeid(fusion::as_vector(splitter(a+b+split( c*d + split(e-f)), res))).name() << "\n\n";
     fusion::as_vector(splitter(split(a) + split(b), res));
-    fusion::as_vector(splitter(a + b, res));
-    fusion::as_vector(splitter(split(a) + b, res));
-    fusion::as_vector(splitter(a + split(b), res));
-    fusion::as_vector(splitter(a + split(b + c), res));
+    //fusion::as_vector(splitter(a + b, res));
+    //fusion::as_vector(splitter(split(a) + b, res));
+    //fusion::as_vector(splitter(a + split(b), res));
+    //fusion::as_vector(splitter(a + split(b + c), res));
 }
