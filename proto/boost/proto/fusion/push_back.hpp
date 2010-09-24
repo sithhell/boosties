@@ -65,6 +65,31 @@ namespace functional {
             return fusion::push_back(seq, t);
         }
     };
+    
+    struct push_front
+    {
+        BOOST_PROTO_CALLABLE()
+
+        template <typename Sig>
+        struct result;
+
+        template <typename This, typename Seq, typename T>
+        struct result<This(Seq, T)>
+            : result<This(Seq const&, T const&)>
+        {};
+
+        template <typename This, typename Seq, typename T>
+        struct result<This(Seq &, T const &)>
+            : fusion::result_of::push_front<Seq const, T>
+        {};
+
+        template <typename Seq, typename T>
+        typename fusion::result_of::push_front<Seq const, T>::type
+        operator()(Seq const& seq, T const& t) const
+        {
+            return fusion::push_front(seq, t);
+        }
+    };
 }
 
 template <>
