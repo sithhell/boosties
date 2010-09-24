@@ -11,6 +11,7 @@
 #include <boost/proto/visitor/grammar.hpp>
 
 #include <iostream>
+#include <typeinfo>
 
 namespace boost { namespace phoenix {
     
