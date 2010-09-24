@@ -1,4 +1,3 @@
-
 #include <boost/fusion/support/is_sequence.hpp>
 #include <boost/fusion/algorithm/iteration/for_each.hpp>
 #include <boost/fusion/algorithm/transformation.hpp>
@@ -89,9 +88,6 @@ struct needs_split
 
 template <int N>
 struct make_split_terminal : proto::terminal<mpl::int_<N> > {};
-
-namespace boost { namespace proto {
-}}
 
 struct eval_children
     : proto::or_<
