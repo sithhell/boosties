@@ -138,7 +138,7 @@ struct eval_children
     template <typename This, typename State, typename Expr>
     struct result<This(State const&, Expr const&)>
     {
-        typedef typename boost::result_of<split_grammar(Expr const&, State const&)>::type eval_result;
+        typedef typename proto::detail::uncvref<typename boost::result_of<split_grammar(Expr const&, State const&)>::type>::type eval_result;
 
         typedef typename
             mpl::eval_if_c<
@@ -146,7 +146,7 @@ struct eval_children
               , mpl::eval_if_c<
                     fusion::traits::is_sequence<eval_result>::value
                   , fusion::result_of::join<State const, eval_result const>
-                  , fusion::result_of::push_back<State const,  eval_result const>
+                  , fusion::result_of::push_back<State const,  eval_result>
                 >
               , mpl::identity<State const>
             >::type
@@ -197,23 +197,23 @@ struct splitter_visitor
     template <typename This, typename Expr, typename State>
     struct result<This(Expr const &, State const&)>
     {
-        typedef typename
+        typedef typename proto::detail::uncvref<typename
             proto::result_of::unpack_expr<
                 Tag
               , proto::default_domain
-              , typename fusion::result_of::transform<
+              , typename proto::detail::uncvref<typename fusion::result_of::transform<
                     Expr
                   , replace_split<fusion::result_of::size<State>::type::value>
-                >::type
-            >::type
+                >::type>::type
+            >::type>::type
             split_expr_type;
 
-        typedef typename
+        typedef typename proto::detail::uncvref<typename
             mpl::eval_if_c<
                 needs_split<Expr>::type::value
-              , fusion::result_of::join<typename fusion::result_of::push_front<State const, split_expr_type>::type const, typename fusion::result_of::fold<Expr, fusion::vector0<>, eval_children>::type const>
+              , proto::detail::uncvref< typename fusion::result_of::join<typename fusion::result_of::push_front<State const, split_expr_type>::type const, typename fusion::result_of::fold<Expr, fusion::vector0<>, eval_children>::type const>::type >
               , mpl::identity<fusion::vector1<Expr const &> >//fusion::result_of::join<State const, fusion::vector1<Expr> const >
-            >::type
+            >::type>::type
             type;
     };
 
@@ -225,8 +225,8 @@ struct splitter_visitor
     }
 
     template <typename Expr, typename State>
-    typename result<this_type(Expr const&, State const&)>::type
-    invoke(Expr const& expr, State const&state, mpl::true_) const
+    typename proto::detail::uncvref<typename result<this_type(Expr const&, State const&)>::type>::type
+    invoke(Expr const& expr, State const& state, mpl::true_) const
     {
         return fusion::join(
             fusion::push_front(
@@ -237,7 +237,9 @@ struct splitter_visitor
                       , replace_split<fusion::result_of::size<State>::type::value>()
                     )
                 )
-            ), fusion::fold(expr, fusion::vector0<>(), eval_children()));
+            )
+          , fusion::fold(expr, fusion::vector0<>(), eval_children())
+        );
     }
 
     template <typename Expr, typename State>
@@ -286,4 +288,10 @@ int main()
     std::cout << typeid(fusion::as_vector(splitter(split(a) + b, res))).name() << "\n\n";
     std::cout << typeid(fusion::as_vector(splitter(a + split(b), res))).name() << "\n\n";
     std::cout << typeid(fusion::as_vector(splitter(a + split(b + c), res))).name() << "\n\n";
+    std::cout << typeid(fusion::as_vector(splitter(a+b+split( c*d + split(e-f)), res))).name() << "\n\n";
+    fusion::as_vector(splitter(split(a) + split(b), res));
+    fusion::as_vector(splitter(a + b, res));
+    fusion::as_vector(splitter(split(a) + b, res));
+    fusion::as_vector(splitter(a + split(b), res));
+    fusion::as_vector(splitter(a + split(b + c), res));
 }
