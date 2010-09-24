@@ -8,6 +8,7 @@
 #include <boost/proto/transform/fall_through.hpp>
 #include <boost/proto/transform/transform_expr.hpp>
 #include <boost/proto/fusion.hpp>
+#include <boost/proto/fusion/push_back.hpp>
 #include <boost/proto/visitor/cases.hpp>
 #include <boost/proto/visitor/visit.hpp>
 #include <boost/proto/visitor/grammar.hpp>
@@ -90,65 +91,6 @@ template <int N>
 struct make_split_terminal : proto::terminal<mpl::int_<N> > {};
 
 namespace boost { namespace proto {
-
-namespace functional {
-    
-    struct join
-    {
-        BOOST_PROTO_CALLABLE()
-
-        template <typename Sig>
-        struct result;
-
-        template <typename This, typename Seq1, typename Seq2>
-        struct result<This(Seq1, Seq2)>
-            : result<This(Seq1 const&, Seq2 const&)>
-        {};
-
-        template <typename This, typename Seq1, typename Seq2>
-        struct result<This(Seq1 &, Seq2 &)>
-            : fusion::result_of::join<Seq1 const, Seq2 const>
-        {};
-
-        template <typename Seq1, typename Seq2>
-        typename fusion::result_of::join<Seq1 const, Seq2 const>::type
-        operator()(Seq1 const& seq1, Seq2 const& seq2) const
-        {
-            return fusion::join(seq1, seq2);
-        }
-    };
-    
-    struct push_back
-    {
-        BOOST_PROTO_CALLABLE()
-
-        template <typename Sig>
-        struct result;
-
-        template <typename This, typename Seq, typename T>
-        struct result<This(Seq, T const &)>
-            : result<This(Seq const&, T const&)>
-        {};
-
-        template <typename This, typename Seq, typename T>
-        struct result<This(Seq &, T const &)>
-            : fusion::result_of::push_back<Seq const, T>
-        {};
-
-        template <typename Seq, typename T>
-        typename fusion::result_of::push_back<Seq const, T>::type
-        operator()(Seq const& seq, T const& t) const
-        {
-            return fusion::push_back(seq, t);
-        }
-    };
-}
-
-template <>
-struct is_callable<functional::join> : mpl::true_ {};
-
-template <>
-struct is_callable<functional::push_back> : mpl::true_ {};
 }}
 
 struct eval_children
