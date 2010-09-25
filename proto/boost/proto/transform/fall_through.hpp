@@ -31,6 +31,7 @@ namespace detail {
         operator()(T const & t) const
         {
             typename Grammar::template impl<T const&, State, Data> g;
+            //Grammar g;
             g(t, state, data);
         }
 

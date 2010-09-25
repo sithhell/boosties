@@ -7,25 +7,25 @@
  ******************************************************************************/
 
 #include <boost/proto/core.hpp>
-#include <boost/proto/visitor/cases.hpp>
-#include <boost/proto/visitor/grammar.hpp>
-#include <boost/proto/visitor/visit.hpp>
+#include <boost/proto/visitor.hpp>
 
 namespace proto = boost::proto;
 
 // visitor specific to a given tag
-template <typename Tag> struct visitor;
+template <typename Tag> struct visitor
+    : proto::_
+{};
 
 // grammar specific to a given tag
-template <typename Tag> struct grammar;
+template <typename Tag> struct grammar
+    : proto::_
+{};
 
 int main()
 {
     typedef proto::terminal<int>::type terminal_type;
 
-    typedef proto::grammar<visitor, grammar> test_grammar;
+    typedef proto::visitor<visitor, grammar> test_grammar;
 
     BOOST_MPL_ASSERT_MSG((proto::matches<terminal_type, test_grammar>::value), NO_MATCH, (test_grammar, terminal_type));
 }
-#include <boost/proto/visitor/visitor.hpp>
-#include <boost/proto/visitor/detail/invoke_impl.hpp>

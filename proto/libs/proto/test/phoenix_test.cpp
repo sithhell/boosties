@@ -3,12 +3,10 @@
 #include <boost/ref.hpp>
 #include <boost/fusion/algorithm/iteration/for_each.hpp>
 #include <boost/mpl/eval_if.hpp>
-#include <boost/proto/core.hpp>
-#include <boost/proto/transform.hpp>
-#include <boost/proto/fusion.hpp>
-#include <boost/proto/visitor/cases.hpp>
-#include <boost/proto/visitor/visit.hpp>
-#include <boost/proto/visitor/grammar.hpp>
+#include <boost/proto/proto.hpp>
+#include <boost/proto/visitor.hpp>
+#include <boost/proto/transform/unpack.hpp>
+#include <boost/proto/transform/transform_expr.hpp>
 
 #include <iostream>
 #include <typeinfo>
@@ -26,7 +24,7 @@ namespace boost { namespace phoenix {
     //
     // We define our evaluation grammar/transform just here by using the meta
     // grammar with our generic_evaluator.
-    typedef proto::grammar<generic_evaluator, phoenix_grammar> eval_grammar;
+    typedef proto::visitor<generic_evaluator, phoenix_grammar> eval_grammar;
 
     eval_grammar const eval = eval_grammar();
 
@@ -38,7 +36,14 @@ namespace boost { namespace phoenix {
     // expression arity and generic::evaluator<Tag>::operator() arity needs to
     // match
     template <typename Tag>
-    struct generic_evaluator;
+    struct generic_evaluator
+        : proto::_default<eval_grammar>
+    {};
+    
+    template <typename Tag>
+    struct phoenix_grammar
+        : proto::_
+    {};
 
     template <typename Expr>
     struct actor;
@@ -304,28 +309,49 @@ namespace boost { namespace phoenix {
         // more ...
     }
     
+    struct argument_eval;
+    
     // define the generic evaluator
     template <>
     struct generic_evaluator<tag::argument>
-        : proto::visitor<proto::visit::unpacked, proto::visit::with_state, proto::visit::without_data>
+        : proto::unpack<argument_eval(proto::_value, proto::_state)>
+    {};
+
+    struct argument_eval
+        : proto::callable
     {
         template <typename Sig>
         struct result;
         
         template <typename This, typename N, typename Env>
-        struct result<This(N const&, Env&)>
-            : fusion::result_of::at_c<Env, remove_reference<typename boost::result_of<eval_grammar(N)>::type>::type::value>
+        struct result<This(N, Env&)>
+            : result<This(N const &, Env&)>
+        {};
+
+        template <typename This, typename N, typename Env>
+        struct result<This(N &, Env&)>
+            : fusion::result_of::at_c<Env, N::value>
         {
         };
         
         template <typename N, typename Env>
         typename fusion::result_of::at_c<
             Env
-          , remove_reference<typename boost::result_of<eval_grammar(N)>::type>::type::value
+          , N::value
         >::type
-        operator()(N const&, Env& env) const
+        operator()(N &, Env& env) const
         {
-            return fusion::at_c<remove_reference<typename boost::result_of<eval_grammar(N)>::type>::type::value>(env);
+            return fusion::at_c<N::value>(env);
+        }
+        
+        template <typename N, typename Env>
+        typename fusion::result_of::at_c<
+            Env
+          , N::value
+        >::type
+        operator()(N const &, Env& env) const
+        {
+            return fusion::at_c<N::value>(env);
         }
     };
 
@@ -403,9 +429,15 @@ namespace boost { namespace phoenix {
 
     ////////////////////////////////////////////////////////////////////////////
     // finally, define how our generic_evaluator should evaluate our if_
+    struct if_then_eval;
+
     template <>
     struct generic_evaluator<tag::if_then>
-        : proto::visitor<proto::visit::unpacked, proto::visit::with_state, proto::visit::without_data>
+        : proto::unpack<if_then_eval(proto::_, proto::_state)>
+    {};
+
+    struct if_then_eval
+        : proto::callable
     {
         typedef void result_type;
 
@@ -420,9 +452,15 @@ namespace boost { namespace phoenix {
 
     ////////////////////////////////////////////////////////////////////////////
     // finally, define how our generic_evaluator should evaluate our if_
+    struct if_then_else_eval;
+
     template <>
     struct generic_evaluator<tag::if_then_else>
-        : proto::visitor<proto::visit::unpacked, proto::visit::with_state, proto::visit::without_data>
+        : proto::unpack<if_then_else_eval(proto::_, proto::_state)>
+    {};
+
+    struct if_then_else_eval
+        : proto::callable
     {
         typedef void result_type;
 
@@ -443,34 +481,36 @@ namespace boost { namespace phoenix {
 #include <vector>
 
 namespace phoenix = boost::phoenix;
+namespace proto = boost::proto;
+namespace mpl = boost::mpl;
 
 // the new design enables proto grammars that can refer to phoenix expressions
 // in a somehow natural way, i.e. with they're names instead of proto::nary_expr<Tag, ...>
 struct test_grammar
-    : phoenix::argument<boost::proto::_>
+    : phoenix::argument<proto::_>
 {};
 
 struct if_test_grammar
-    : boost::proto::or_<
-        phoenix::if_then_else<boost::proto::_, boost::proto::_, boost::proto::_>
-      , phoenix::if_then<boost::proto::_, boost::proto::_>
+    : proto::or_<
+        phoenix::if_then_else<proto::_, proto::_, proto::_>
+      , phoenix::if_then<proto::_, proto::_>
     >
 {};
 
 template <typename Expr>
 void foo(Expr const& expr)
 {
-    foo(expr, boost::proto::matches<Expr, test_grammar>());
+    foo(expr, proto::matches<Expr, test_grammar>());
 }
 
 template <typename Expr>
-void foo(Expr const& expr, boost::mpl::true_)
+void foo(Expr const& expr, mpl::true_)
 {
     std::cout << "argument!\n";
 }
 
 template <typename Expr>
-void foo(Expr const& expr, boost::mpl::false_)
+void foo(Expr const& expr, mpl::false_)
 {
     std::cout << "no argument!\n";
 }
@@ -478,148 +518,76 @@ void foo(Expr const& expr, boost::mpl::false_)
 template <typename Expr>
 void if_foo(Expr const& expr)
 {
-    if_foo(expr, boost::proto::matches<Expr, if_test_grammar>());
+    if_foo(expr, proto::matches<Expr, if_test_grammar>());
 }
 
 template <typename Expr>
-void if_foo(Expr const& expr, boost::mpl::true_)
+void if_foo(Expr const& expr, mpl::true_)
 {
     std::cout << "if statement!\n";
 }
 
 template <typename Expr>
-void if_foo(Expr const& expr, boost::mpl::false_)
+void if_foo(Expr const& expr, mpl::false_)
 {
     std::cout << "no if statement!\n";
 }
 
 template <typename Tag>
-struct constant_folder;
+struct constant_fold_visitor;
 
-template <typename Grammar, typename State, typename Data>
-struct traversal
-{
-    traversal(State state, Data data) : state(state), data(data) {}
-    State state;
-    Data data;
+typedef proto::visitor<constant_fold_visitor, phoenix::phoenix_grammar> constant_folder;
 
-    typedef void result_type;
+constant_folder const constant_fold = constant_folder();
 
-    template <typename T>
-    typename boost::enable_if<boost::proto::is_expr<T> >::type
-    operator()(T const & t) const
-    {
-        typename Grammar::template impl<T const&, State, Data> g;
-        g(t, state, data);
-    }
+template <typename Tag>
+struct constant_fold_visitor
+    : proto::transform_expr<constant_folder>
+{};
 
-    template <typename T>
-    typename boost::disable_if<boost::proto::is_expr<T> >::type
-    operator()(T const & t) const
-    {}
-};
-
-template <typename Grammar>
-struct fall_through
-    : boost::proto::transform<fall_through<Grammar> >
-{
-    template <typename Expr, typename State, typename Data>
-    struct impl
-        : boost::proto::transform_impl<Expr, State, Data>
-    {
-        typedef typename impl::expr_param result_type;
-
-        result_type
-        operator()(
-            typename impl::expr_param expr
-          , typename impl::state_param state
-          , typename impl::data_param data
-        ) const
-        {
-            boost::fusion::for_each(expr, traversal<Grammar, typename impl::state_param, typename impl::data_param>(state, data));
-            return expr;
-        }
-    };
-};
-
-typedef boost::proto::grammar<constant_folder, phoenix::phoenix_grammar, boost::proto::_, fall_through> constant_fold_grammar;
-
-constant_fold_grammar const constant_fold = constant_fold_grammar();
+struct fold_plus;
 
 template <>
-struct constant_folder<boost::proto::tag::plus>
-    : boost::proto::visitor<boost::proto::visit::packed, boost::proto::visit::without_state, boost::proto::visit::without_data>
+struct constant_fold_visitor<proto::tag::terminal>
+    : proto::_
+{}; 
+
+template <>
+struct constant_fold_visitor<proto::tag::plus>
+    : proto::or_<
+       proto::when<
+            proto::plus<constant_folder, phoenix::value<proto::_> >
+          , proto::if_<
+                // TODO, make this match, somehow ...
+                mpl::true_()//proto::matches<constant_folder(proto::_child0), phoenix::value<proto::_> >()
+              , fold_plus(proto::_value(constant_folder(proto::_child0)), proto::_value(proto::_child1))
+              , proto::transform_expr<constant_folder>
+            >
+        >
+      , proto::otherwise<proto::transform_expr<constant_folder> >
+    >
+{};
+
+struct fold_plus
+    : proto::callable
 {
-    typedef constant_folder<boost::proto::tag::plus> this_type;
-
-    template <typename Lhs, typename Rhs>
-    struct is_constant
-    {
-        typedef
-            typename boost::proto::detail::uncvref<typename boost::result_of<constant_fold_grammar(Lhs const&)>::type>::type
-            lhs_folded;
-        typedef
-            typename boost::proto::detail::uncvref<typename boost::result_of<constant_fold_grammar(Rhs const&)>::type>::type
-            rhs_folded;
-
-        typedef typename
-            boost::mpl::and_<
-                boost::proto::matches<lhs_folded, phoenix::value<boost::proto::_> >
-              , boost::proto::matches<rhs_folded, phoenix::value<boost::proto::_> >
-            >::type
-            type;
-    };
-    
-
     template <typename Sig>
     struct result;
 
-    template <typename This, typename Expr>
-    struct result<This(Expr const&)>
+    template <typename This, typename T1, typename T2>
+    struct result<This(T1, T2)>
     {
-        typedef typename boost::proto::result_of::child_c<Expr, 0>::type lhs;
-        typedef typename boost::proto::result_of::child_c<Expr, 1>::type rhs;
-
-        typedef is_constant<lhs, rhs> constant;
-
-        typedef typename
-            boost::mpl::if_c<
-                constant::type::value
-              , typename constant::lhs_folded const
-              , Expr const &
-            >::type
-            type;
+        typedef typename proto::detail::uncvref<T1>::type value_type;
+        typedef phoenix::actor<typename phoenix::value<value_type>::type> const type;
     };
 
-    template <typename Expr>
-    typename result<this_type(Expr const&)>::type
-    operator()(Expr const & expr) const
+    template <typename T1, typename T2>
+    typename result<fold_plus(T1, T2)>::type
+    operator()(T1 t1, T2 t2)
     {
-        typedef result<this_type(Expr const&)> nested_result;
-
-        return this->invoke(expr, typename nested_result::constant::type());
+        std::cout << "fold: " << t1 << " + " << t2 << "\n";
+        return phoenix::val(t1 + t2);
     }
-
-    private:
-        template <typename Expr>
-        typename result<this_type(Expr const&)>::type
-        invoke(Expr const & expr, boost::mpl::true_) const
-        {
-            return
-                phoenix::val(
-                    constant_fold(boost::proto::child_c<0>(expr))(0)
-                  + constant_fold(boost::proto::child_c<1>(expr))(0)
-                );
-        }
-        
-        template <typename Expr>
-        typename result<this_type(Expr const&)>::type
-        invoke(Expr const & expr, boost::mpl::false_) const
-        {
-            constant_fold(boost::proto::child_c<0>(expr));
-            constant_fold(boost::proto::child_c<1>(expr));
-            return expr;
-        }
 };
 
 int main()
@@ -664,7 +632,14 @@ int main()
 
     std::for_each(v.begin(), v.end(), if_(_1 % 2)[std::cout << _1 << std::string(" is odd\n")].else_[std::cout << _1 << std::string(" is even\n")]);
 
-    std::cout << typeid(constant_fold( val(8) + val(9) )).name() << "\n";
-    std::cout << typeid(constant_fold( val(8) + val(9) + val(10) )).name() << "\n";
-    std::cout << typeid(constant_fold( _1 * (val(7) + val(8)) )).name() << "\n";
+    std::cout << "\n";
+    std::cout << constant_fold( val(8) + val(9) )(0) << "\n";
+    std::cout << "\n";
+    std::cout << constant_fold( val(8) + val(9) + val(10) )(0) << "\n";
+    std::cout << "\n";
+    std::cout << constant_fold( _1 * (val(9) + val(10)) )(10) << "\n";
+    std::cout << "\n";
+    std::cout << typeid(constant_fold( val(8) + val(9) )).name() << "\n\n";
+    std::cout << typeid(constant_fold( val(8) + val(9) + val(10) )).name() << "\n\n";
+    std::cout << typeid(constant_fold( _1 * (val(7) + val(8)) )).name() << "\n\n";
 }

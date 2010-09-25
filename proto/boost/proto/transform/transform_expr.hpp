@@ -14,7 +14,8 @@
 #include <boost/preprocessor/iteration/iterate.hpp>
 #include <boost/preprocessor/repetition/repeat.hpp>
 #include <boost/preprocessor/repetition/enum_params.hpp>
-#include <boost/proto/transform.hpp>
+#include <boost/proto/traits.hpp>
+#include <boost/proto/transform/impl.hpp>
 
 namespace boost { namespace proto {
 
@@ -22,6 +23,39 @@ namespace detail {
 
     template <typename Fun, typename Expr, typename State, typename Data, long Arity = arity_of<Expr>::value>
     struct transform_expr_impl;
+
+    template <typename Fun, typename Expr, typename State, typename Data>
+    struct transform_expr_impl<Fun, Expr, State, Data, 0>
+        : transform_impl<Expr, State, Data>
+    {
+        typedef typename
+            uncvref<
+                typename when<_, Fun>::template impl<Expr, State, Data>::result_type
+            >::type
+            transform_result;
+        
+        typedef typename domain_of<Expr>::type expr_domain;
+        typedef typename tag_of<Expr>::type expr_tag;
+
+        typedef typename
+            result_of::make_expr<
+                expr_tag
+              , expr_domain
+              , transform_result
+            >::type
+            result_type;
+
+        result_type const
+        operator()(
+            typename transform_expr_impl::expr_param e
+          , typename transform_expr_impl::state_param s
+          , typename transform_expr_impl::data_param d
+        ) const
+        {
+            return make_expr<expr_tag, expr_domain>(typename when<_, Fun>::template impl<Expr, State, Data>()(e,s,d));
+        }
+
+    };
 
 #define BOOST_PROTO_TRANSFORM_RESULT_TYPE(Z, N, __) \
         typedef typename \
@@ -61,6 +95,11 @@ struct transform_expr
         : detail::transform_expr_impl<Fun, Expr, State, Data>
     {};
 };
+
+template <typename Fun>
+struct is_callable<transform_expr<Fun> >
+    : mpl::true_
+{};
 
 }}
 
