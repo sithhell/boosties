@@ -141,8 +141,8 @@ struct is_callable<unpack<Fun> >
     {
         typedef typename mpl::if_c<
                 is_callable<Fun>::value
-              , proto::call<Fun(BOOST_PP_ENUM(N, BOOST_PROTO_CHILD_E_N, _), S)>
-              , proto::make<Fun(BOOST_PP_ENUM(N, BOOST_PROTO_CHILD_E_N, _), S)>
+              , proto::call<Fun(BOOST_PP_ENUM(N, BOOST_PROTO_CHILD_E_N, _), S, D)>
+              , proto::make<Fun(BOOST_PP_ENUM(N, BOOST_PROTO_CHILD_E_N, _), S, D)>
             >::type
             which;
 

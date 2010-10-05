@@ -15,6 +15,11 @@ namespace boost { namespace phoenix {
     
     template <typename Tag>
     struct phoenix_grammar;
+
+    template <template <typename> class Visitor>
+    struct phoenix_visitor
+        : proto::visitor<Visitor, phoenix_grammar>
+    {};
     
     template <typename Tag>
     struct generic_evaluator;
@@ -24,7 +29,7 @@ namespace boost { namespace phoenix {
     //
     // We define our evaluation grammar/transform just here by using the meta
     // grammar with our generic_evaluator.
-    typedef proto::visitor<generic_evaluator, phoenix_grammar> eval_grammar;
+    typedef phoenix_visitor<generic_evaluator> eval_grammar;
 
     eval_grammar const eval = eval_grammar();
 
@@ -536,7 +541,7 @@ void if_foo(Expr const& expr, mpl::false_)
 template <typename Tag>
 struct constant_fold_visitor;
 
-typedef proto::visitor<constant_fold_visitor, phoenix::phoenix_grammar> constant_folder;
+typedef phoenix::phoenix_visitor<constant_fold_visitor> constant_folder;
 
 constant_folder const constant_fold = constant_folder();
 
@@ -545,27 +550,38 @@ struct constant_fold_visitor
     : proto::transform_expr<constant_folder>
 {};
 
-struct fold_plus;
-
 template <>
 struct constant_fold_visitor<proto::tag::terminal>
     : proto::_
-{}; 
+{};
+
+struct constant_fold_extract_value
+    : proto::when<proto::_, proto::_value(constant_folder(proto::_))>
+{};
+
+template <typename FoldOp>
+struct folder
+    : proto::if_<
+        mpl::and_<
+            proto::matches<
+                constant_folder(proto::_child0)
+              , phoenix::value<proto::_>::type
+            >()
+          , proto::matches<
+                constant_folder(proto::_child1)
+              , phoenix::value<proto::_>::type
+            >()
+        >()
+      , proto::unpack<FoldOp(constant_fold_extract_value)>
+      , proto::transform_expr<constant_folder>
+    >
+{};
+
+struct fold_plus;
 
 template <>
 struct constant_fold_visitor<proto::tag::plus>
-    : proto::or_<
-       proto::when<
-            proto::plus<constant_folder, phoenix::value<proto::_> >
-          , proto::if_<
-                // TODO, make this match, somehow ...
-                mpl::true_()//proto::matches<constant_folder(proto::_child0), phoenix::value<proto::_> >()
-              , fold_plus(proto::_value(constant_folder(proto::_child0)), proto::_value(proto::_child1))
-              , proto::transform_expr<constant_folder>
-            >
-        >
-      , proto::otherwise<proto::transform_expr<constant_folder> >
-    >
+    : folder<fold_plus>
 {};
 
 struct fold_plus
@@ -587,6 +603,35 @@ struct fold_plus
     {
         std::cout << "fold: " << t1 << " + " << t2 << "\n";
         return phoenix::val(t1 + t2);
+    }
+};
+
+struct fold_multiply;
+
+template <>
+struct constant_fold_visitor<proto::tag::multiplies>
+    : folder<fold_multiply>
+{};
+
+struct fold_multiply
+    : proto::callable
+{
+    template <typename Sig>
+    struct result;
+
+    template <typename This, typename T1, typename T2>
+    struct result<This(T1, T2)>
+    {
+        typedef typename proto::detail::uncvref<T1>::type value_type;
+        typedef phoenix::actor<typename phoenix::value<value_type>::type> const type;
+    };
+
+    template <typename T1, typename T2>
+    typename result<fold_plus(T1, T2)>::type
+    operator()(T1 t1, T2 t2)
+    {
+        std::cout << "fold: " << t1 << " * " << t2 << "\n";
+        return phoenix::val(t1 * t2);
     }
 };
 
@@ -633,13 +678,18 @@ int main()
     std::for_each(v.begin(), v.end(), if_(_1 % 2)[std::cout << _1 << std::string(" is odd\n")].else_[std::cout << _1 << std::string(" is even\n")]);
 
     std::cout << "\n";
-    std::cout << constant_fold( val(8) + val(9) )(0) << "\n";
+    std::cout << constant_fold(val(8) + val(9))(0) << "\n";
     std::cout << "\n";
-    std::cout << constant_fold( val(8) + val(9) + val(10) )(0) << "\n";
+    std::cout << constant_fold(val(8) + val(9) + val(10))(0) << "\n";
     std::cout << "\n";
-    std::cout << constant_fold( _1 * (val(9) + val(10)) )(10) << "\n";
+    std::cout << constant_fold(_1 * (val(9) + val(10)))(10) << "\n";
     std::cout << "\n";
-    std::cout << typeid(constant_fold( val(8) + val(9) )).name() << "\n\n";
-    std::cout << typeid(constant_fold( val(8) + val(9) + val(10) )).name() << "\n\n";
-    std::cout << typeid(constant_fold( _1 * (val(7) + val(8)) )).name() << "\n\n";
+    std::cout << constant_fold(_1 * val(9) + val(10))(10) << "\n";
+    std::cout << "\n";
+    std::cout << constant_fold(val(10) * val(9) + val(10))(10) << "\n";
+    std::cout << constant_fold(val(8) + _1)(10) << "\n";
+    std::cout << "\n";
+    std::cout << typeid(constant_fold( val(8) + val(9))).name() << "\n\n";
+    std::cout << typeid(constant_fold( val(8) + val(9) + val(10))).name() << "\n\n";
+    std::cout << typeid(constant_fold( _1 * (val(7) + val(8)))).name() << "\n\n";
 }

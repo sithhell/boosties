@@ -11,7 +11,6 @@
 
 #include <boost/proto/proto_fwd.hpp>
 #include <boost/proto/matches.hpp>
-#include <boost/proto/traits.hpp>
 
 namespace boost { namespace proto {
 
