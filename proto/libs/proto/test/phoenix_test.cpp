@@ -635,13 +635,49 @@ struct fold_multiply
     }
 };
 
+template <typename U, typename Q = void>
+struct bar
+{};
+
+template <typename T, typename U>
+struct test_impl
+{
+    typedef int/*typename mpl::apply<T, U>::type*/ type;
+};
+
+//template <typename T, typename Q>
+//struct test;
+//{typedef int type;};
+
+template <template <typename, typename> class T, typename T>
+struct test//<T<mpl::_1, mpl::_2>, int>
+{
+    typedef int type;
+};
+
+/*
+template <template <typename> class T, typename Q>
+struct test<T<mpl::_1>, Q>
+    : test_impl<T<mpl::_1>, Q>
+{
+};
+
+template <template <typename A0 = mpl::_1, typename A1 = mpl::_2> class T, typename Q>
+struct test<T<mpl::_1, mpl::_2>, Q>
+    : test_impl<T<mpl::_1, mpl::_2>, Q>
+{};
+*/
+
 int main()
 {
     using phoenix::val;
     using phoenix::ref;
     using phoenix::cref;
     using phoenix::placeholders::_1;
+
+    std::cout << typeid(test<bar, proto::tag::plus>::type).name() << "\n";
     
+#if 0
     std::cout << val(1)(0) << "\n";
     std::cout << cref(2)(0) << "\n";
     int i = 3;
@@ -692,4 +728,5 @@ int main()
     std::cout << typeid(constant_fold( val(8) + val(9))).name() << "\n\n";
     std::cout << typeid(constant_fold( val(8) + val(9) + val(10))).name() << "\n\n";
     std::cout << typeid(constant_fold( _1 * (val(7) + val(8)))).name() << "\n\n";
+#endif
 }
