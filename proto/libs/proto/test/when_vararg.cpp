@@ -70,7 +70,7 @@ typedef proto::terminal<int>::type const i_t;
 typedef proto::function<i_t>::type const f1_t;
 typedef proto::function<i_t, i_t>::type const f2_t;
 typedef proto::function<i_t, i_t, i_t>::type const f3_t;
-
+        
 int main()
 {
     f1_t f1 = {};
@@ -86,4 +86,6 @@ int main()
     test2()(f3, 5);
     test()(i());
     test2()(i(), 5);
+    test()(i);
+    //test2()(i, 5);
 }

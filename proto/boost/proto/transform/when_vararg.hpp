@@ -4,6 +4,7 @@
 #define BOOST_PROTO_TRANSFORM_WHEN_VARARG_HPP
 
 #include <boost/preprocessor/arithmetic/dec.hpp>
+#include <boost/preprocessor/control/if.hpp>
 #include <boost/preprocessor/repetition/enum_params.hpp>
 #include <boost/preprocessor/repetition/enum_trailing_params.hpp>
 #include <boost/preprocessor/iteration/iterate.hpp>
@@ -26,34 +27,10 @@ namespace boost { namespace proto {
 
     namespace detail
     {
-        template <typename R, typename Fun, typename Expr, typename State, typename Data>
-        struct when_vararg_impl<R(vararg<Fun>), Expr, State, Data, 0>
-            : proto::transform_impl<Expr, State, Data>
-        {
-            typedef
-                typename mpl::if_c<
-                    is_callable<R>::value
-                  , proto::call<R(Fun(proto::_child_c<0>))> // "R" is a function to call
-                  , proto::make<R(Fun(proto::_child_c<0>))> // "R" is an object to construct
-                >::type
-            which;
-            
-            typedef typename which::template impl<Expr, State, Data>::result_type result_type;
-            
-            result_type operator ()(
-                typename when_vararg_impl::expr_param   e
-              , typename when_vararg_impl::state_param  s
-              , typename when_vararg_impl::data_param   d
-            ) const
-            {
-                return typename which::template impl<Expr, State, Data>()(e, s, d);
-            }
-        };
-
         #define BOOST_PROTO_CHILD_M(_, N, __) Fun(proto::_child_c<N>)
         #define BOOST_PROTO_CHILD(N) BOOST_PP_ENUM(N, BOOST_PROTO_CHILD_M, _)
 
-        #define BOOST_PROTO_WHEN_VARARG_IMPL(_, N, ARITY)                       \
+        #define BOOST_PROTO_WHEN_VARARG_IMPL(__, N, ARITY)                      \
         template <                                                              \
             typename R                                                          \
           , typename Fun                                                        \
@@ -73,15 +50,27 @@ namespace boost { namespace proto {
                 typename mpl::if_c<                                             \
                     is_callable<R>::value                                       \
                   , proto::call< /* "R" is a function to call*/                 \
-                        R(                                                      \
-                            BOOST_PROTO_CHILD(ARITY)                            \
-                            BOOST_PP_ENUM_TRAILING_PARAMS(N, A)                 \
+                        BOOST_PP_IF(                                            \
+                            ARITY                                               \
+                          , R(                                                  \
+                                BOOST_PROTO_CHILD(ARITY)                        \
+                                BOOST_PP_ENUM_TRAILING_PARAMS(N, A)             \
+                            )                                                   \
+                         , R(                                                   \
+                                proto::_ BOOST_PP_ENUM_TRAILING_PARAMS(N,A)     \
+                           )                                                    \
                         )                                                       \
                     >                                                           \
                   , proto::make< /* "R" is an object to construct*/             \
-                        R(                                                      \
-                            BOOST_PROTO_CHILD(ARITY)                            \
-                            BOOST_PP_ENUM_TRAILING_PARAMS(N, A)                 \
+                        BOOST_PP_IF(                                            \
+                            ARITY                                               \
+                          , R(                                                  \
+                                BOOST_PROTO_CHILD(ARITY)                        \
+                                BOOST_PP_ENUM_TRAILING_PARAMS(N, A)             \
+                            )                                                   \
+                         , R(                                                   \
+                                proto::_ BOOST_PP_ENUM_TRAILING_PARAMS(N,A)     \
+                           )                                                    \
                         )                                                       \
                     >                                                           \
                 >::type                                                         \
@@ -106,7 +95,12 @@ namespace boost { namespace proto {
         #define BOOST_PROTO_WHEN_VARARG_IMPL_N(_, N, __) \
         BOOST_PP_REPEAT(BOOST_PP_DEC(BOOST_PROTO_MAX_ARITY), BOOST_PROTO_WHEN_VARARG_IMPL, N)
 
-        BOOST_PP_REPEAT_FROM_TO(1, BOOST_PP_INC(BOOST_PROTO_MAX_ARITY), BOOST_PROTO_WHEN_VARARG_IMPL_N, _)
+        //BOOST_PP_REPEAT_FROM_TO(1, BOOST_PP_INC(BOOST_PROTO_MAX_ARITY), BOOST_PROTO_WHEN_VARARG_IMPL_N, _)
+        BOOST_PP_REPEAT(BOOST_PP_INC(BOOST_PROTO_MAX_ARITY), BOOST_PROTO_WHEN_VARARG_IMPL_N, _)
+        #undef BOOST_PROTO_WHEN_VARARG_IMPL_N
+        #undef BOOST_PROTO_WHEN_VARARG_IMPL
+        #undef BOOST_PROTO_CHILD
+        #undef BOOST_PROTO_CHILD_M
     }
 
 }}
