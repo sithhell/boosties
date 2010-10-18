@@ -5,3 +5,4 @@ MACRO(ADD_PHOENIX_TEST name)
 ENDMACRO()
 
 ADD_PHOENIX_TEST(simple)
+ADD_PHOENIX_TEST(primitives_tests)

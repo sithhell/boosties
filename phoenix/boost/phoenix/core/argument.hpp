@@ -36,19 +36,21 @@ namespace boost {
 
 namespace boost { namespace phoenix
 {
-#define BOOST_PHOENIX_ARGUMENT_N(_, N, __)                                      \
+#define BOOST_PHOENIX_ARGUMENT_N(_, N, name)                                      \
     actor<                                                                      \
         proto::terminal<argument<mpl::int_<N> > >::type const                   \
-    > const BOOST_PP_CAT(arg, BOOST_PP_INC(N)) = {};
+    > const BOOST_PP_CAT(name, BOOST_PP_INC(N)) = {};
 
     namespace placeholders
     {
-        BOOST_PP_REPEAT(1, BOOST_PHOENIX_ARGUMENT_N, _)
+        BOOST_PP_REPEAT(3, BOOST_PHOENIX_ARGUMENT_N, arg)
+        BOOST_PP_REPEAT(3, BOOST_PHOENIX_ARGUMENT_N, _)
     }
 
     namespace arg_names
     {
-        BOOST_PP_REPEAT(1, BOOST_PHOENIX_ARGUMENT_N, _)
+        BOOST_PP_REPEAT(3, BOOST_PHOENIX_ARGUMENT_N, arg)
+        BOOST_PP_REPEAT(3, BOOST_PHOENIX_ARGUMENT_N, _)
     }
 
 }}

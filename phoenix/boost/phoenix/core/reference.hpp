@@ -33,7 +33,7 @@ namespace boost { namespace phoenix
 
     template <typename T>
     typename reference<T const>::type const
-    ref(T const & t)
+    cref(T const & t)
     {
         typename reference<T const>::type const e = {boost::cref(t)};
         return e;

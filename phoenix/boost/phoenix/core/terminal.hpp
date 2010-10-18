@@ -68,10 +68,10 @@ namespace boost { namespace phoenix
     {};
 
     template <typename Actions>
-    struct phoenix_case<proto::tag::terminal, Actions>
+    struct phoenix_algorithm<proto::tag::terminal, Actions>
         : proto::or_<
-            bind<argument_rule, Actions>
-          , bind<terminal_rule, Actions>
+            proto::bind<argument_rule, Actions>
+          , proto::bind<terminal_rule, Actions>
           , default_rule<Actions>
         >
     {};

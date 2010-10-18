@@ -11,26 +11,30 @@
 #define BOOST_PHOENIX_CORE_GRAMMAR_HPP
 
 #include <boost/proto/proto.hpp>
-
-namespace boost { namespace phoenix
+    
+namespace boost { namespace proto 
 {
     template <typename Rule, typename Actions>
     struct bind
         : proto::when<Rule, typename Actions::template action<Rule> >
     {};
+}}
+
+namespace boost { namespace phoenix
+{
 
     // forward declare the grammar
     template <typename Actions>
-    struct grammar;
+    struct meta_grammar;
 
     template <typename Actions>
     struct default_rule
-        : bind<proto::_, Actions>
+        : proto::bind<proto::_, Actions>
     {};
 
     template <typename Tag, typename Actions>
-    struct phoenix_case
-        : default_rule<Actions>
+    struct phoenix_algorithm
+        : proto::not_<proto::_>
     {};
 
     template <typename Actions>
@@ -38,19 +42,19 @@ namespace boost { namespace phoenix
     {
         template <typename Tag>
         struct case_
-            : phoenix_case<Tag, Actions>
+            : phoenix_algorithm<Tag, Actions>
         {};
     };
 
     template <typename Actions>
-    struct grammar
+    struct meta_grammar
         : proto::switch_<grammar_cases<Actions> >
     {};
 
     // forward declare the evaluator
     struct evaluator;
 
-    typedef grammar<evaluator> eval_grammar;
+    typedef meta_grammar<evaluator> eval_grammar;
 
     struct evaluator
     {

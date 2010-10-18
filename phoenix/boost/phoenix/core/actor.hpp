@@ -27,7 +27,7 @@ namespace boost { namespace phoenix
 
     namespace result_of
     {
-        template <typename Expr, typename A0 = void, typename Dummy = void>
+        template <typename Expr, typename A0 = void, typename A1 = void, typename Dummy = void>
         struct actor;
 
         template <typename Expr>
@@ -45,6 +45,11 @@ namespace boost { namespace phoenix
         template <typename Expr, typename A0>
         struct actor<Expr, A0>
             : boost::result_of<eval_grammar(Expr const&, fusion::vector1<A0>&)>
+        {};
+
+        template <typename Expr, typename A0, typename A1>
+        struct actor<Expr, A0, A1>
+            : boost::result_of<eval_grammar(Expr const&, fusion::vector2<A0, A1>&)>
         {};
     }
 
@@ -66,7 +71,6 @@ namespace boost { namespace phoenix
         typename result_of::actor<Expr>::type
         operator()() const
         {
-            std::cout << is_nullary<Expr>::type::value << "\n";
             fusion::vector0<> env;
             return eval(*this, env);
         }
@@ -76,6 +80,14 @@ namespace boost { namespace phoenix
         operator()(A0 const& a0) const
         {
             fusion::vector1<A0 const&> env(a0);
+            return eval(*this, env);
+        }
+
+        template <typename A0, typename A1>
+        typename result_of::actor<Expr, A0 const &, A1 const &>::type
+        operator()(A0 const& a0, A1 const& a1) const
+        {
+            fusion::vector2<A0 const&, A1 const&> env(a0, a1);
             return eval(*this, env);
         }
 

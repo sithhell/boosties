@@ -20,10 +20,32 @@ namespace boost { namespace phoenix
     {
         typedef actor<typename proto::terminal<T>::type const> type;
     };
+    
+    template <typename T, int N>
+    struct value<T[N]>
+        : proto::terminal<T>
+    {
+        typedef actor<typename proto::terminal<T const* >::type const> type;
+    };
+
+    template <typename T>
+    actor<T> const &
+    val(actor<T> const & t)
+    {
+        return t;
+    }
 
     template <typename T>
     typename value<T>::type const
-    val(T t)
+    val(T const & t)
+    {
+        typename value<T>::type const e = {t};
+        return e;
+    }
+
+    template <typename T>
+    typename value<T>::type const
+    val(T & t)
     {
         typename value<T>::type const e = {t};
         return e;

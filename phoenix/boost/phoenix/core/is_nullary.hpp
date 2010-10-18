@@ -17,35 +17,35 @@ namespace boost { namespace phoenix
 {
     namespace detail
     {
-        struct is_nullary_action
+        struct is_nullary_
         {
             template <typename Rule>
             struct action;
         };
 
-        typedef grammar<is_nullary_action> is_nullary_eval;
+        typedef meta_grammar<is_nullary_> is_nullary_eval;
 
         template <typename Rule>
-        struct is_nullary_action::action
-                : proto::if_<
-                    proto::matches<
-                        proto::_
-                      , proto::terminal<proto::_>::type
-                    >()
+        struct is_nullary_::action
+            : proto::if_<
+                proto::matches<
+                    proto::_
+                  , proto::terminal<proto::_>::type
+                >()
+              , mpl::true_()
+              , proto::fold<
+                    proto::_
                   , mpl::true_()
-                  , proto::fold<
-                        proto::_
-                      , mpl::true_()
-                      , mpl::and_<
-                            proto::lazy<detail::is_nullary_eval(proto::_)>
-                          , proto::_state
-                        >()
-                    >
+                  , mpl::and_<
+                        proto::lazy<detail::is_nullary_eval(proto::_)>
+                      , proto::_state
+                    >()
                 >
-            {};
+            >
+        {};
 
         template <>
-        struct is_nullary_action::action<argument_rule>
+        struct is_nullary_::action<argument_rule>
             : proto::make<mpl::false_()>
         {};
     }
