@@ -36,7 +36,7 @@ namespace boost {
 
 namespace boost { namespace phoenix
 {
-#define BOOST_PHOENIX_ARGUMENT_N(_, N, name)                                      \
+#define BOOST_PHOENIX_ARGUMENT_N(_, N, name)                                    \
     actor<                                                                      \
         proto::terminal<argument<mpl::int_<N> > >::type const                   \
     > const BOOST_PP_CAT(name, BOOST_PP_INC(N)) = {};

@@ -28,12 +28,12 @@ namespace boost { namespace phoenix
     template <typename T>
     struct unwrap_custom_terminal;
 
-    struct terminal_rule
+    struct custom_terminal_grammar
         : proto::if_<is_custom_terminal<proto::_value>()>
     {};
 
-    template <>
-    struct evaluator::action<terminal_rule>
+    template <typename Dummy>
+    struct evaluator::visit<custom_terminal_grammar, Dummy>
         : proto::lazy<unwrap_custom_terminal<proto::_value>(proto::_value)>
     {};
 
@@ -58,21 +58,21 @@ namespace boost { namespace phoenix
         };
     };
 
-    struct argument_rule
+    struct argument_grammar
         : proto::if_<boost::is_placeholder<proto::_value>()>
     {};
     
-    template <>
-    struct evaluator::action<argument_rule>
+    template <typename Actions>
+    struct evaluator::visit<argument_grammar, Actions>
         : proto::lazy<get_environment_arg<proto::_value>(proto::_state)>
     {};
 
-    template <typename Actions>
-    struct phoenix_algorithm<proto::tag::terminal, Actions>
-        : proto::or_<
-            proto::bind<argument_rule, Actions>
-          , proto::bind<terminal_rule, Actions>
-          , default_rule<Actions>
+    template <typename Dummy>
+    struct phoenix_rules<proto::tag::terminal, Dummy>
+        : detail::rules<
+            argument_grammar
+          , custom_terminal_grammar
+          , proto::terminal<proto::_>
         >
     {};
 }}

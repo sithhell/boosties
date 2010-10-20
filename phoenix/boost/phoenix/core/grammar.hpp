@@ -11,59 +11,44 @@
 #define BOOST_PHOENIX_CORE_GRAMMAR_HPP
 
 #include <boost/proto/proto.hpp>
+#include <boost/phoenix/core/detail/algorithm.hpp>
     
-namespace boost { namespace proto 
-{
-    template <typename Rule, typename Actions>
-    struct bind
-        : proto::when<Rule, typename Actions::template action<Rule> >
-    {};
-}}
-
 namespace boost { namespace phoenix
 {
-
-    // forward declare the grammar
-    template <typename Actions>
-    struct meta_grammar;
-
-    template <typename Actions>
-    struct default_rule
-        : proto::bind<proto::_, Actions>
-    {};
-
-    template <typename Tag, typename Actions>
-    struct phoenix_algorithm
-        : proto::not_<proto::_>
-    {};
-
-    template <typename Actions>
-    struct grammar_cases
-    {
-        template <typename Tag>
-        struct case_
-            : phoenix_algorithm<Tag, Actions>
-        {};
-    };
-
-    template <typename Actions>
-    struct meta_grammar
-        : proto::switch_<grammar_cases<Actions> >
-    {};
-
     // forward declare the evaluator
     struct evaluator;
 
-    typedef meta_grammar<evaluator> eval_grammar;
+    // forward declare the grammar
+    template <typename Visitor = evaluator>
+    struct meta_grammar;
 
-    struct evaluator
+    template <typename Tag, typename Dummy = void>
+    struct phoenix_rules
+        : proto::not_<proto::_>
+    {};
+
+    struct grammar_dispatch
     {
-        template <typename Rule, typename Dummy = void>
-        struct action
-            : proto::_default<eval_grammar>
+        template <typename Tag>
+        struct case_
+            : phoenix_rules<Tag>
         {};
     };
 
+    template <typename Visitor>
+    struct meta_grammar
+        : detail::algorithm<grammar_dispatch, Visitor>
+    {};
+
+    struct evaluator
+    {
+        template <typename Rule, typename Actions = evaluator>
+        struct visit
+            : proto::_default<meta_grammar<Actions> >
+        {};
+    };
+
+    typedef meta_grammar<evaluator> eval_grammar;
     eval_grammar const eval = eval_grammar();
 }}
 

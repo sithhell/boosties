@@ -2,17 +2,19 @@
 #include <iostream>
 
 #include <boost/phoenix/core.hpp>
+#include <boost/phoenix/core/expression.hpp>
+#include <boost/phoenix/statement/for.hpp>
 
 namespace boost { namespace phoenix {
 
-    template <typename Actions>
-    struct phoenix_algorithm<proto::tag::plus, Actions>
-        : proto::bind<proto::plus<meta_grammar<Actions>, meta_grammar<Actions> >, Actions>
+    template <>
+    struct phoenix_rules<proto::tag::plus>
+        : detail::rule<proto::plus<meta_grammar<>, meta_grammar<> > >
     {};
 
-    template <typename Actions>
-    struct phoenix_algorithm<proto::tag::multiplies, Actions>
-        : proto::bind<proto::multiplies<meta_grammar<Actions>, meta_grammar<Actions> >, Actions>
+    template <>
+    struct phoenix_rules<proto::tag::multiplies>
+        : detail::rule<proto::multiplies<meta_grammar<>, meta_grammar<> > >
     {};
 }}
 
@@ -32,4 +34,6 @@ int main()
     std::cout << (arg1)(0) << "\n";
 
     std::cout << (arg1 + 5 * 10 + arg1)(2) << "\n";
+
+    for_(phoenix::val(8), phoenix::val(false), phoenix::val(0))[phoenix::val(9)]();
 }
